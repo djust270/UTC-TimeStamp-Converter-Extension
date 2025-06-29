@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Timezone Converter",
+  "version": "1.0",
+  "description": "Convert UTC timestamps to your local timezone",
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Convert Timestamps"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+   
+  }
+}
