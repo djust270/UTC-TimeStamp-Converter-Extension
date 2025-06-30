@@ -23,6 +23,7 @@ class TimestampConverter {
             
             // 12-hour format with AM/PM - but NOT already converted (no timezone abbreviation after)
             /\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{2} (?:AM|PM)(?!\s+\w+)/gi,
+            /\d{1,2}\/\d{1,2}\/\d{2}, \d{1,2}:\d{2} (?:AM|PM)(?!\s+\w+)/gi, // Short year format with comma
             
             // RFC 2822 format
             /[A-Za-z]{3},?\s+\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+(?:GMT|UTC)/g
@@ -56,7 +57,8 @@ class TimestampConverter {
             
             // 12-hour formats with AM/PM - Updated to match the actual format
             /^(\d{1,2})\/(\d{1,2})\/(\d{4}) (\d{1,2}):(\d{2}) (AM|PM)(?:\s*(?:UTC|GMT))?$/i,
-            /^(\d{2})\/(\d{2})\/(\d{4}) (\d{1,2}):(\d{2}) (AM|PM)(?:\s*(?:UTC|GMT))?$/i
+            /^(\d{2})\/(\d{2})\/(\d{4}) (\d{1,2}):(\d{2}) (AM|PM)(?:\s*(?:UTC|GMT))?$/i,
+            /^(\d{1,2})\/(\d{1,2})\/(\d{2}), (\d{1,2}):(\d{2}) (AM|PM)(?:\s*(?:UTC|GMT))?$/i // Short year with comma
         ];
         
         for (let i = 0; i < dateFormats.length; i++) {
@@ -83,8 +85,16 @@ class TimestampConverter {
                     }
                     
                     const hourStr = hour.toString().padStart(2, '0');
+                    
+                    // Handle both 4-digit and 2-digit years
+                    let year = match[3];
+                    if (year.length === 2) {
+                        // Convert 2-digit year to 4-digit (assume 20xx for years 00-99)
+                        year = '20' + year;
+                    }
+                    
                     // MM/DD/YYYY format
-                    const isoString = `${match[3]}-${match[1].padStart(2, '0')}-${match[2].padStart(2, '0')}T${hourStr}:${minute}:00Z`;
+                    const isoString = `${year}-${match[1].padStart(2, '0')}-${match[2].padStart(2, '0')}T${hourStr}:${minute}:00Z`;
                     console.log(`Created ISO string: ${isoString}`);
                     const result = new Date(isoString);
                     console.log(`Parsed date object: ${result}`);
@@ -239,13 +249,30 @@ class TimestampConverter {
     }
     
     async checkAutoConvert() {
-        const { rememberedSites = [], selectedTimezone } = await chrome.storage.sync.get(['rememberedSites', 'selectedTimezone']);
-        const currentDomain = window.location.hostname;
+        console.log('Checking auto-convert for domain:', window.location.hostname);
         
-        if (rememberedSites.includes(currentDomain) && selectedTimezone) {
-            setTimeout(() => {
-                this.findAndConvertTimestamps(selectedTimezone);
-            }, 1000); // Small delay to ensure page is loaded
+        try {
+            const { rememberedSites = [], selectedTimezone } = await chrome.storage.sync.get(['rememberedSites', 'selectedTimezone']);
+            const currentDomain = window.location.hostname;
+            
+            console.log('Current domain:', currentDomain);
+            console.log('Remembered sites:', rememberedSites);
+            console.log('Selected timezone:', selectedTimezone);
+            
+            if (rememberedSites.includes(currentDomain) && selectedTimezone) {
+                const timeout = 4000;
+                const timeoutDisplay = timeout / 1000;
+                console.log('Domain is remembered, starting auto-conversion in ' + timeoutDisplay + ' seconds...');
+                setTimeout(() => {
+                    console.log('Executing auto-conversion now');
+                    const count = this.findAndConvertTimestamps(selectedTimezone);
+                    console.log(`Auto-converted ${count} timestamps`);
+                }, timeout);
+            } else {
+                console.log('No auto-conversion needed - domain not remembered or no timezone set');
+            }
+        } catch (error) {
+            console.error('Error in checkAutoConvert:', error);
         }
     }
 }

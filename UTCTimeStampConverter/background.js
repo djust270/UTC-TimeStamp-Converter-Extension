@@ -16,28 +16,39 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     // Only trigger when page is completely loaded
     if (changeInfo.status === 'complete' && tab.url) {
+        console.log('Tab updated:', tab.url, 'Status:', changeInfo.status);
+        
         try {
             const url = new URL(tab.url);
             const domain = url.hostname;
+            console.log('Checking domain for auto-conversion:', domain);
             
             // Check if this domain is in remembered sites
             chrome.storage.sync.get(['rememberedSites', 'selectedTimezone'], (result) => {
                 const { rememberedSites = [], selectedTimezone } = result;
+                console.log('Background - Remembered sites:', rememberedSites);
+                console.log('Background - Selected timezone:', selectedTimezone);
                 
                 if (rememberedSites.includes(domain) && selectedTimezone) {
-                    // Send message to content script to auto-convert
-                    chrome.tabs.sendMessage(tabId, {
-                        action: 'convertTimestamps',
-                        timezone: selectedTimezone
-                    }).catch(error => {
-                        // Silently handle error - content script might not be ready
-                        console.log('Auto-conversion not triggered:', error.message);
-                    });
+                    console.log('Background - Domain is remembered, sending auto-convert message');
+                    
+                    // Wait a bit longer for content to load
+                    setTimeout(() => {
+                        chrome.tabs.sendMessage(tabId, {
+                            action: 'convertTimestamps',
+                            timezone: selectedTimezone
+                        }).then(response => {
+                            console.log('Background - Auto-conversion response:', response);
+                        }).catch(error => {
+                            console.log('Background - Auto-conversion error:', error.message);
+                        });
+                    }, 3000); // Longer delay for complex pages
+                } else {
+                    console.log('Background - No auto-conversion needed for domain:', domain);
                 }
             });
         } catch (error) {
-            // Invalid URL, ignore
-            console.log('Invalid URL for auto-conversion:', error.message);
+            console.log('Background - Invalid URL for auto-conversion:', error.message);
         }
     }
 });
